@@ -37,10 +37,16 @@ export default async function AdminDashboard() {
 
       <div className="flex flex-grow">
         {/* Sidebar Nav */}
-        <nav className="w-64 border-r border-black/10 dark:border-white/10 p-6 flex flex-col gap-2 hidden md:flex">
-          <NavItem active icon={<FolderOpen size={18} />}>Event Vaults</NavItem>
-          <NavItem icon={<Users size={18} />}>Client Directory</NavItem>
-          <NavItem icon={<Settings size={18} />}>System Settings</NavItem>
+        <nav className="w-64 border-r border-black/10 dark:border-white/10 p-6 flex flex-col gap-2 hidden md:flex min-h-[calc(100vh-76px)]">
+          <Link href="/admin">
+            <NavItem active icon={<FolderOpen size={18} />}>Event Vaults</NavItem>
+          </Link>
+          <Link href="/admin/clients">
+            <NavItem icon={<Users size={18} />}>Client Directory</NavItem>
+          </Link>
+          <Link href="/admin/system">
+            <NavItem icon={<Settings size={18} />}>System Settings</NavItem>
+          </Link>
         </nav>
 
         {/* Main Content Area */}

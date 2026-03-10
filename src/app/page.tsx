@@ -1,4 +1,4 @@
-import { mockEvents, mockCompanies } from "@/lib/mockData";
+import { mockEvents, mockCompanies, mockAssets, MediaAsset } from "@/lib/mockData";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, LogOut, Clock } from "lucide-react";
@@ -48,7 +48,7 @@ export default function ProjectOverview() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {clientEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard key={event.id} event={event} assets={mockAssets} />
           ))}
         </div>
       </main>
@@ -56,11 +56,19 @@ export default function ProjectOverview() {
   );
 }
 
-function EventCard({ event }: { event: typeof mockEvents[0] }) {
+function EventCard({ event, assets = [] }: { event: typeof mockEvents[0], assets?: MediaAsset[] }) {
   const expiryDate = new Date(event.expiry_date);
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     month: 'long', day: 'numeric', year: 'numeric'
   }).format(expiryDate);
+
+  // Derive stats if assets are provided
+  const eventAssets = assets.filter(a => a.event_id === event.id);
+  const totalItems = eventAssets.length;
+  // Calculate total GB (mock size is currently in MB)
+  const totalMB = eventAssets.reduce((sum, asset) => sum + (asset.size_mb || 0), 0);
+  const sizeGB = (totalMB / 1024).toFixed(2);
+
 
   return (
     <Link href={`/vault/${event.id}`} className="group block h-full relative z-10">
@@ -99,8 +107,14 @@ function EventCard({ event }: { event: typeof mockEvents[0] }) {
           </div>
 
           <div className="flex items-center justify-between opacity-70 group-hover:text-vividOrange transition-colors mt-6 text-foreground">
-            <span className="font-mono text-[11px] uppercase tracking-widest font-semibold">Access Vault</span>
-            <ArrowRight size={18} className="transform group-hover:translate-x-1 transition-transform" />
+            <div className="flex gap-4">
+              <span className="font-mono text-[10px] uppercase tracking-widest">{totalItems} Items</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest">{sizeGB} GB</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] uppercase tracking-widest font-semibold hidden sm:inline-block">Access Vault</span>
+              <ArrowRight size={18} className="transform group-hover:translate-x-1 transition-transform" />
+            </div>
           </div>
         </div>
       </div>
