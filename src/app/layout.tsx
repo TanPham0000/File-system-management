@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro, Space_Mono } from "next/font/google";
-import localFont from "next/font/local";
+import { Be_Vietnam_Pro, Space_Mono, Inter, Playfair_Display } from "next/font/google";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 
 const beVietnamPro = Be_Vietnam_Pro({
@@ -15,15 +15,15 @@ const spaceMono = Space_Mono({
   variable: "--font-space-mono",
 });
 
-const switser = localFont({
-  src: "../fonts/Switser.woff2",
-  variable: "--font-switser",
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-switser", // Kept variable name for backwards compatibility
   display: "swap",
 });
 
-const instrumental = localFont({
-  src: "../fonts/Instrumental.woff2",
-  variable: "--font-instrumental",
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-instrumental", // Kept variable name for backwards compatibility
   display: "swap",
 });
 
@@ -40,9 +40,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${switser.variable} ${beVietnamPro.variable} ${instrumental.variable} ${spaceMono.variable} font-body antialiased`}
+        className={`${inter.variable} ${beVietnamPro.variable} ${playfairDisplay.variable} ${spaceMono.variable} font-body antialiased`}
       >
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

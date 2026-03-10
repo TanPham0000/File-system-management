@@ -1,0 +1,33 @@
+﻿node.exe : 
+At line:1 char:1
++ & "C:\Program Files\nodej
+s/node.exe" "C:\Users\tanph
+\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (:St  
+  ring) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+./src/app/admin/vault/[even
+tId]/page.tsx
+4:20  Error: 'useRouter' is
+ defined but never used.  @
+typescript-eslint/no-unused
+-vars
+
+./src/app/login/page.tsx
+20:67  Error: Unexpected an
+y. Specify a different type
+.  @typescript-eslint/no-ex
+plicit-any
+
+info  - Need to disable som
+e ESLint rules? Learn more 
+here: https://nextjs.org/do
+cs/basic-features/eslint#di
+sabling-rules

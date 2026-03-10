@@ -1,33 +1,46 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { mockCompanies } from "@/lib/mockData";
 
-export async function login(formData: FormData) {
+export type ActionState = {
+  message?: string;
+  error?: string;
+  success?: boolean;
+};
+
+export async function login(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
   const email = formData.get("email") as string;
-  if (!email) return;
+  if (!email) return { error: "Email is required" };
 
-  // Admin access
-  if (email.toLowerCase() === "admin@pham.com") {
-    cookies().set("role", "admin", { httpOnly: true, path: "/" });
+  // const supabase = createClient();
+  
+  // Note: For Magic Link auth, the user will receive an email.
+  // const { error } = await supabase.auth.signInWithOtp({
+  //   email,
+  //   options: {
+  //     // Configure this to match your deployed URL eventually. 
+  //     // For local development it should match localhost.
+  //     emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+  //   },
+  // });
+
+  // if (error) {
+  //   return { error: error.message };
+  // }
+
+  // Bypass mail check for testing purposes
+  if (email.includes("admin")) {
     redirect("/admin");
+  } else {
+    redirect("/vault/cl_001");
   }
 
-  // Client access
-  let clientId = "comp-1"; // Default to TechSummit for the mock
-  if (email.toLowerCase().includes("innovate.com")) {
-    clientId = "comp-2";
-  }
-
-  cookies().set("client_id", clientId, { httpOnly: true, path: "/" });
-  cookies().set("role", "client", { httpOnly: true, path: "/" });
-
-  redirect("/");
+  // return { success: true, message: "Check your email for the magic link!" };
 }
 
 export async function logout() {
-  cookies().delete("client_id");
-  cookies().delete("role");
+  const supabase = createClient();
+  await supabase.auth.signOut();
   redirect("/login");
 }

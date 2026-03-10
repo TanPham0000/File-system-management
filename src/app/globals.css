@@ -2,19 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #FAF7F5;
-  /* Almost White */
-  --foreground: #0F0F0F;
-  /* Atomic Black */
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0F0F0F;
-    /* Atomic Black */
-    --foreground: #FAF7F5;
-    /* Almost White */
+    --background: #FAF7F5; /* Almost White */
+    --foreground: #0F0F0F; /* Atomic Black */
+  }
+
+  .dark {
+    --background: #0F0F0F; /* Atomic Black */
+    --foreground: #FAF7F5; /* Almost White */
   }
 }
 

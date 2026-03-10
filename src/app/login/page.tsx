@@ -1,10 +1,18 @@
 "use client";
 
 import React from 'react';
-import { useFormStatus } from 'react-dom';
-import { login } from '@/actions/auth';
+import { useFormState, useFormStatus } from 'react-dom';
+import { login, type ActionState } from '@/actions/auth';
+
+const initialState: ActionState = {
+  message: undefined,
+  error: undefined,
+  success: undefined
+};
 
 export default function LoginPage() {
+  const [state, formAction] = useFormState(login, initialState);
+
   return (
     <main className="min-h-screen bg-atomicBlack flex flex-col justify-center items-center px-6 relative overflow-hidden text-almostWhite">
       {/* Background ambient effect */}
@@ -13,11 +21,11 @@ export default function LoginPage() {
       <div className="z-10 w-full max-w-md flex flex-col items-center">
         <h1 className="font-heading text-4xl mb-4 tracking-tight">PHAM.</h1>
         <p className="font-special text-xl text-center italic mb-12 opacity-90 leading-relaxed">
-          "Moments deserve to last longer than the moment itself."
+          &quot;Moments deserve to last longer than the moment itself.&quot;
         </p>
 
         <div className="w-full bg-[#1A1A1A] border border-[#333] p-8 rounded-xl shadow-2xl relative">
-          <form action={login} className="flex flex-col gap-6">
+          <form action={formAction} className="flex flex-col gap-6">
             <div className="flex flex-col gap-2 relative">
               <label htmlFor="email" className="font-mono text-xs text-almostWhite/50 uppercase tracking-wider">
                 Client Access Portal
@@ -32,14 +40,24 @@ export default function LoginPage() {
                 defaultValue="sarah@techsummit.com" // Pre-filled for demo purposes
               />
             </div>
-            
-            <SubmitButton />
+
+            {state?.error && (
+              <p className="text-red-400 text-sm">{state.error}</p>
+            )}
+
+            {state?.success ? (
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-md text-green-400 text-sm text-center">
+                {state.message}
+              </div>
+            ) : (
+              <SubmitButton />
+            )}
           </form>
 
           <p className="mt-6 text-center font-mono text-[10px] text-almostWhite/30 uppercase tracking-widest">
             System Alert: Authorized Personnel Only
             <br/><br/>
-            (Demo: Try 'sarah@techsummit.com' or 'admin@pham.com')
+            (Demo: Try &apos;sarah@techsummit.com&apos; or &apos;admin@pham.com&apos;)
           </p>
         </div>
       </div>
@@ -59,10 +77,10 @@ function SubmitButton() {
       {pending ? (
         <>
           <span className="w-4 h-4 border-2 border-atomicBlack/30 border-t-atomicBlack rounded-full animate-spin"></span>
-          Authenticating...
+          Sending Link...
         </>
       ) : (
-        "Enter Vault"
+        "Send Magic Link"
       )}
     </button>
   );

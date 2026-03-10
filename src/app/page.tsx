@@ -18,7 +18,7 @@ export default function ProjectOverview() {
       {/* Header */}
       <header className="px-8 py-6 flex justify-between items-center border-b border-black/10 dark:border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-6">
-          <Link href="/" className="font-heading text-2xl tracking-tighter hover:text-vividOrange transition-colors">
+          <Link href="/" className="font-heading text-2xl tracking-tighter hover:text-vividOrange transition-colors relative z-10 min-h-[44px] flex items-center">
             PHAM. Vault
           </Link>
           <div className="h-4 w-px bg-black/20 dark:bg-white/20"></div>
@@ -26,10 +26,10 @@ export default function ProjectOverview() {
             {currentClient.name}
           </p>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 relative z-10">
           <ThemeToggle />
           <form action={logout}>
-            <button type="submit" className="flex items-center gap-2 text-sm opacity-60 hover:text-vividOrange transition-colors cursor-pointer">
+            <button type="submit" className="flex items-center gap-2 text-sm opacity-60 hover:text-vividOrange transition-colors cursor-pointer min-h-[44px] px-2 relative z-10">
               <LogOut size={16} />
               <span className="font-mono uppercase tracking-wider text-[10px]">Secure Exit</span>
             </button>
@@ -63,7 +63,7 @@ function EventCard({ event }: { event: typeof mockEvents[0] }) {
   }).format(expiryDate);
 
   return (
-    <Link href={`/vault/${event.id}`} className="group block h-full">
+    <Link href={`/vault/${event.id}`} className="group block h-full relative z-10">
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-foreground/5 dark:bg-foreground/10 border border-black/10 dark:border-white/10 group-hover:border-vividOrange/50 transition-colors duration-500 flex flex-col rounded-sm">
 
         {/* Image Container with Hover Scale */}
