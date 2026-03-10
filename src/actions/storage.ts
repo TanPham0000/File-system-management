@@ -1,6 +1,71 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { Company, EventType, MediaAsset } from "@/lib/types";
+
+export async function getCompaniesAction() {
+  const supabase = createClient();
+  const { data, error } = await supabase.from('companies').select('*').order('name');
+  if (error) {
+    console.error("Failed to fetch companies:", error);
+    return [];
+  }
+  return data as Company[];
+}
+
+export async function createEventAction(eventData: Omit<EventType, 'id' | 'created_at'>) {
+  const supabase = createClient();
+  const { data, error } = await supabase.from('events').insert([eventData]).select().single();
+  if (error) {
+    console.error("Failed to create event:", error);
+    throw new Error("Failed to create event in Supabase.");
+  }
+  return data as EventType;
+}
+
+export async function getVaultDataAction(eventId: string) {
+  const supabase = createClient();
+  const { data: event, error: eventError } = await supabase.from('events').select('*').eq('id', eventId).single();
+  if (eventError || !event) return null;
+
+  const { data: client } = await supabase.from('companies').select('*').eq('id', event.client_id).single();
+  const { data: assets } = await supabase.from('media_assets').select('*').eq('event_id', eventId);
+
+  return {
+    event: event as EventType,
+    client: client as Company | null,
+    assets: (assets as MediaAsset[]) || []
+  };
+}
+
+export async function insertAssetAction(assetData: Omit<MediaAsset, 'id'>) {
+  const supabase = createClient();
+  const { data, error } = await supabase.from('media_assets').insert([assetData]).select().single();
+  if (error) {
+    console.error("Failed to insert asset:", error);
+    throw new Error("Failed to insert asset.");
+  }
+  return data as MediaAsset;
+}
+
+export async function deleteAssetAction(assetId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from('media_assets').delete().eq('id', assetId);
+  if (error) {
+    console.error("Failed to delete asset:", error);
+    throw new Error("Failed to delete asset.");
+  }
+}
+
+export async function updateAssetAction(assetId: string, updates: Partial<MediaAsset>) {
+  const supabase = createClient();
+  const { data, error } = await supabase.from('media_assets').update(updates).eq('id', assetId).select().single();
+  if (error) {
+    console.error("Failed to update asset:", error);
+    throw new Error("Failed to update asset.");
+  }
+  return data as MediaAsset;
+}
 
 export async function getClientMediaStorageUsage() {
   const supabase = createClient();

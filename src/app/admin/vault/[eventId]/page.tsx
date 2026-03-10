@@ -1,16 +1,20 @@
 "use client";
 
-import { mockEvents, mockAssets, mockCompanies, MediaAsset } from "@/lib/mockData";
+import { Company, EventType, MediaAsset } from "@/lib/types";
+import { getVaultDataAction, insertAssetAction, deleteAssetAction, updateAssetAction } from "@/actions/storage";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, UploadCloud, FileType, CheckCircle2, X } from "lucide-react";
-import { useState, useCallback } from "react";
+import { ArrowLeft, UploadCloud, FileType, CheckCircle2, X, Loader2 } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import MediaCard from "@/components/MediaCard";
 
 export default function AdminVaultPage({ params }: { params: { eventId: string } }) {
-  const event = mockEvents.find((e) => e.id === params.eventId);
+  const [event, setEvent] = useState<EventType | null>(null);
+  const [client, setClient] = useState<Company | null>(null);
+  const [localAssets, setLocalAssets] = useState<MediaAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -19,18 +23,25 @@ export default function AdminVaultPage({ params }: { params: { eventId: string }
   
   const [uploadCategory, setUploadCategory] = useState("Photos");
   const [uploadDay, setUploadDay] = useState("1");
-  const [localAssets, setLocalAssets] = useState(mockAssets); // Use local state seeded by mockData to trigger immediate renders
   
   const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
   const [editCategory, setEditCategory] = useState("");
   const [editDay, setEditDay] = useState("");
 
-  if (!event) {
-    notFound();
-  }
+  useEffect(() => {
+    async function loadData() {
+      const data = await getVaultDataAction(params.eventId);
+      if (data) {
+        setEvent(data.event);
+        setClient(data.client);
+        setLocalAssets(data.assets);
+      }
+      setIsLoading(false);
+    }
+    loadData();
+  }, [params.eventId]);
 
-  const client = mockCompanies.find(c => c.id === event.client_id);
-  const existingAssets = localAssets.filter(a => a.event_id === event.id);
+  const existingAssets = localAssets;
   const existingAssetsCount = existingAssets.length;
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -84,8 +95,8 @@ export default function AdminVaultPage({ params }: { params: { eventId: string }
           setTimeout(() => {
             setUploading(false);
             
-            // Add successful uploads to the mock data so it reflects immediately
-            const newAssets: MediaAsset[] = uploadedFiles.map((upload, index) => {
+            // Add successful uploads to the Supabase
+            const uploadsPromises = uploadedFiles.map(async (upload) => {
               const isVideo = upload.file.type.startsWith('video');
               const isPdf = upload.file.type === 'application/pdf';
               const type = isVideo ? "video" : isPdf ? "document" : "image";
@@ -93,11 +104,10 @@ export default function AdminVaultPage({ params }: { params: { eventId: string }
               const formatMatch = upload.file.name.match(/\.([^.]+)$/);
               const format = formatMatch ? formatMatch[1].toUpperCase() : (isVideo ? "MP4" : isPdf ? "PDF" : "JPG");
               
-              return {
-                id: `new-asset-${Date.now()}-${index}`,
-                event_id: event.id,
-                type: type as "image" | "video" | "document",
-                category: upload.category,
+                const newAssetData = {
+                  event_id: event?.id || params.eventId,
+                  type: type as "image" | "video" | "document",
+                  category: upload.category,
                 url: isVideo ? "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_1MB.mp4" : "https://images.unsplash.com/photo-1551818255-e6e10975bc17?q=80&w=2073&auto=format&fit=crop",
                 filename: upload.file.name,
                 format: format,
@@ -105,16 +115,18 @@ export default function AdminVaultPage({ params }: { params: { eventId: string }
                 day_number: parseInt(upload.day) || undefined,
                 created_at: new Date().toISOString(),
               };
+              
+              const insertedAsset = await insertAssetAction(newAssetData);
+              return insertedAsset;
             });
             
-            // Update the global mock array so the client Vault page sees it
-            mockAssets.push(...newAssets);
-            
-            // Update local state to force a re-render of Visual Vault
-            setLocalAssets([...mockAssets]);
-            
-            // Clear queue
-            setUploadedFiles([]);
+            Promise.all(uploadsPromises).then((newAssets) => {
+              setLocalAssets(prev => [...prev, ...newAssets]);
+              setUploadedFiles([]);
+            }).catch(e => {
+              console.error(e);
+              setUploadedFiles([]);
+            });
             
           }, 500);
           return 100;
@@ -124,44 +136,22 @@ export default function AdminVaultPage({ params }: { params: { eventId: string }
     }, 200);
   };
 
-  const handleDeleteAsset = (assetToDelete: MediaAsset) => {
+  const handleDeleteAsset = async (assetToDelete: MediaAsset) => {
     if (confirm(`Are you sure you want to permanently delete ${assetToDelete.filename}? This will remove it from the Supabase storage bucket and database.`)) {
-      // Simulate API call to delete
-      const updatedAssets = localAssets.filter(a => a.id !== assetToDelete.id);
-      
-      // Update global block as well so it persists in the session mock
-      const globalIndex = mockAssets.findIndex(a => a.id === assetToDelete.id);
-      if (globalIndex > -1) {
-        mockAssets.splice(globalIndex, 1);
-      }
-      
-      setLocalAssets(updatedAssets);
+      await deleteAssetAction(assetToDelete.id);
+      setLocalAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
     }
   };
 
-  const handleEditAsset = (e: React.FormEvent) => {
+  const handleEditAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingAsset) {
-      // Simulate API call to update metadata
-      const updatedAssets = localAssets.map(a => {
-        if (a.id === editingAsset.id) {
-          return {
-            ...a,
-            category: editCategory,
-            day_number: parseInt(editDay) || undefined
-          };
-        }
-        return a;
-      });
-      
-      // Update global mock
-      const globalAsset = mockAssets.find(a => a.id === editingAsset.id);
-      if (globalAsset) {
-        globalAsset.category = editCategory;
-        globalAsset.day_number = parseInt(editDay) || undefined;
-      }
-      
-      setLocalAssets(updatedAssets);
+      const updates = {
+         category: editCategory,
+         day_number: parseInt(editDay) || undefined
+      };
+      await updateAssetAction(editingAsset.id, updates);
+      setLocalAssets(prev => prev.map(a => a.id === editingAsset.id ? { ...a, ...updates } : a));
       setEditingAsset(null);
     }
   };
@@ -171,6 +161,14 @@ export default function AdminVaultPage({ params }: { params: { eventId: string }
     setEditCategory(asset.category);
     setEditDay(asset.day_number ? asset.day_number.toString() : "");
   };
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-background text-foreground flex items-center justify-center"><Loader2 className="animate-spin text-vividOrange" size={48} /></div>;
+  }
+
+  if (!event) {
+    notFound();
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-vividOrange selection:text-atomicBlack transition-colors duration-300">

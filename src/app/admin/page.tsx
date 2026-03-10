@@ -1,4 +1,4 @@
-import { mockEvents, mockCompanies, mockLogs } from "@/lib/mockData";
+import { createClient } from "@/lib/supabase/server";
 import { ShieldCheck, Plus, Settings, Users, FolderOpen, Activity } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -6,7 +6,18 @@ import { logout } from "@/actions/auth";
 import { getClientMediaStorageUsage } from "@/actions/storage";
 
 export default async function AdminDashboard() {
-  const activeVaultsCount = mockEvents.filter(e => new Date(e.expiry_date) > new Date()).length;
+  const supabase = createClient();
+  
+  const { data: eventsData } = await supabase.from('events').select('*').order('created_at', { ascending: false });
+  const events = eventsData || [];
+  
+  const { data: companiesData } = await supabase.from('companies').select('*');
+  const companies = companiesData || [];
+  
+  const { data: logsData } = await supabase.from('activity_logs').select('*');
+  const logs = logsData || [];
+
+  const activeVaultsCount = events.filter(e => new Date(e.expiry_date) > new Date()).length;
   const storageContext = await getClientMediaStorageUsage();
   const tbPercentage = Math.min((storageContext.totalGB / 1024) * 100, 100);
 
@@ -123,10 +134,10 @@ export default async function AdminDashboard() {
             </div>
             
             <div className="flex flex-col">
-              {mockEvents.map(event => {
-                const client = mockCompanies.find(c => c.id === event.client_id);
+              {events.map(event => {
+                const client = companies.find(c => c.id === event.client_id);
                 const isExpired = new Date(event.expiry_date) < new Date();
-                const eventLogs = mockLogs.filter(l => l.event_id === event.id);
+                const eventLogs = logs.filter(l => l.event_id === event.id);
                 const downloads = eventLogs.filter(l => l.action.toLowerCase().includes("download")).length;
                 
                 return (

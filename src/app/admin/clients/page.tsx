@@ -1,10 +1,20 @@
-import { mockCompanies, mockEvents } from "@/lib/mockData";
 import { FolderOpen, Settings, Users, ArrowRight, ShieldCheck, Mail } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { logout } from "@/actions/auth";
+import { createClient } from "@/lib/supabase/server";
 
-export default function AdminClientsPage() {
+export default async function AdminClientsPage() {
+  const supabase = createClient();
+  
+  // Fetch companies
+  const { data: companiesData } = await supabase.from('companies').select('*').order('name');
+  const companies = companiesData || [];
+
+  // Fetch all events for counting
+  const { data: eventsData } = await supabase.from('events').select('*');
+  const allEvents = eventsData || [];
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-vividOrange selection:text-atomicBlack transition-colors duration-300">
       {/* Header */}
@@ -51,7 +61,7 @@ export default function AdminClientsPage() {
             <div>
               <h1 className="font-heading text-4xl tracking-tight mb-2">Client Directory.</h1>
               <p className="font-mono text-xs uppercase tracking-widest opacity-50">
-                {mockCompanies.length} Partner Organizations
+                {companies.length} Partner Organizations
               </p>
             </div>
             
@@ -65,8 +75,8 @@ export default function AdminClientsPage() {
 
           {/* Client Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockCompanies.map(company => {
-                const clientEvents = mockEvents.filter(e => e.client_id === company.id);
+            {companies.map(company => {
+                const clientEvents = allEvents.filter(e => e.client_id === company.id);
                 const activeEvents = clientEvents.filter(e => new Date(e.expiry_date) > new Date());
                 
                 return (

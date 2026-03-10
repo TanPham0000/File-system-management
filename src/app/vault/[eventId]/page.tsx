@@ -1,30 +1,30 @@
 "use client";
 
-import { mockEvents, mockAssets, mockCompanies } from "@/lib/mockData";
-import { notFound } from "next/navigation";
+import { Company, EventType, MediaAsset } from "@/lib/types";
+import { getVaultDataAction } from "@/actions/storage";
 import Link from "next/link";
-import { ArrowLeft, Clock, Download, Image as ImageIcon, Film, Mic, PlaySquare, Map } from "lucide-react";
+import { ArrowLeft, Clock, Download, Image as ImageIcon, Film, Mic, PlaySquare, Map, Loader2 } from "lucide-react";
 import MediaCard from "@/components/MediaCard";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 export default function VaultPage({ params }: { params: { eventId: string } }) {
-  const event = mockEvents.find((e) => e.id === params.eventId);
+  const [event, setEvent] = useState<EventType | null>(null);
+  const [client, setClient] = useState<Company | null>(null);
+  const [assets, setAssets] = useState<MediaAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!event) {
-    notFound();
-  }
-
-  const client = mockCompanies.find(c => c.id === event.client_id);
-  const assets = mockAssets.filter(a => a.event_id === event.id);
-
-  // Stats for the "Content Engine" summary
-  const photosCount = assets.filter(a => a.type === "image").length;
-  const videosCount = assets.filter(a => a.type === "video").length;
-  const categoriesCount = new Set(assets.map(a => a.category)).size;
-  const totalAssets = assets.length;
-
-  const expiryDate = new Date(event.expiry_date);
-  const daysRemaining = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+  useEffect(() => {
+    async function loadData() {
+      const data = await getVaultDataAction(params.eventId);
+      if (data) {
+        setEvent(data.event);
+        setClient(data.client);
+        setAssets(data.assets);
+      }
+      setIsLoading(false);
+    }
+    loadData();
+  }, [params.eventId]);
 
   const [activeTab, setActiveTab] = useState("All Media");
   const [activeDay, setActiveDay] = useState<number | null>(null);
@@ -36,20 +36,41 @@ export default function VaultPage({ params }: { params: { eventId: string } }) {
   }, [assets]);
 
   const filteredAssets = assets.filter((asset) => {
-    // Day filter
     if (activeDay !== null && asset.day_number !== activeDay) return false;
-
-    // Category filter
     if (activeTab === "All Media") return true;
     if (activeTab === "Photos") return asset.type === "image";
     if (activeTab === "Social Clips") return asset.category === "Social Clips";
     if (activeTab === "Speaker Highlights") return asset.category === "Speaker Highlights";
     if (activeTab === "Documents") return asset.type === "document";
-    if (activeTab === "Real-Time (Live)") {
-      return true; 
-    }
+    if (activeTab === "Real-Time (Live)") return true; 
     return true;
   });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <Loader2 className="animate-spin text-vividOrange" size={48} />
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center">
+        <h1 className="text-2xl font-heading mb-4">Vault Not Found</h1>
+        <Link href="/" className="text-vividOrange hover:underline">Return to Overview</Link>
+      </div>
+    );
+  }
+
+  // Stats for the "Content Engine" summary
+  const photosCount = assets.filter(a => a.type === "image").length;
+  const videosCount = assets.filter(a => a.type === "video").length;
+  const categoriesCount = new Set(assets.map(a => a.category)).size;
+  const totalAssets = assets.length;
+
+  const expiryDate = new Date(event.expiry_date);
+  const daysRemaining = Math.max(0, Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body overflow-x-hidden selection:bg-vividOrange selection:text-atomicBlack transition-colors duration-300">
@@ -198,7 +219,7 @@ export default function VaultPage({ params }: { params: { eventId: string } }) {
           </p>
           <div className="flex items-center gap-3 font-mono text-[10px] text-foreground/40">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-            Last accessed by sarah@techsummit.com on 2026-03-07
+            Last accessed by secure client on {new Date().toISOString().split('T')[0]}
           </div>
         </div>
       </footer>

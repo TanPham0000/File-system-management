@@ -1,4 +1,5 @@
-import { mockEvents, mockCompanies, mockAssets, MediaAsset } from "@/lib/mockData";
+import { createClient } from "@/lib/supabase/server";
+import { Company, EventType, MediaAsset } from "@/lib/types";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, LogOut, Clock } from "lucide-react";
@@ -6,12 +7,41 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { cookies } from "next/headers";
 import { logout } from "@/actions/auth";
 
-export default function ProjectOverview() {
+export default async function ProjectOverview() {
   const cookieStore = cookies();
-  const clientId = cookieStore.get("client_id")?.value || mockCompanies[0].id;
+  const clientIdFromCookie = cookieStore.get("client_id")?.value;
+  const supabase = createClient();
   
-  const currentClient = mockCompanies.find(c => c.id === clientId) || mockCompanies[0];
-  const clientEvents = mockEvents.filter(e => e.client_id === currentClient.id);
+  let currentClient: Company | null = null;
+  let clientEvents: EventType[] = [];
+  let allAssets: MediaAsset[] = [];
+
+  // Attempt to load current client from cookie
+  if (clientIdFromCookie) {
+    const { data } = await supabase.from('companies').select('*').eq('id', clientIdFromCookie).single();
+    if (data) currentClient = data;
+  }
+
+  // Fallback to the first available company if no cookie or invalid cookie
+  if (!currentClient) {
+    const { data } = await supabase.from('companies').select('*').limit(1);
+    if (data && data.length > 0) {
+      currentClient = data[0];
+    }
+  }
+
+  // If we have a client, fetch their events
+  if (currentClient) {
+    const { data: eventsData } = await supabase.from('events').select('*').eq('client_id', currentClient.id).order('created_at', { ascending: false });
+    clientEvents = eventsData || [];
+    
+    // Fetch assets for all those events to calculate sizes
+    if (clientEvents.length > 0) {
+      const eventIds = clientEvents.map(e => e.id);
+      const { data: assetsData } = await supabase.from('media_assets').select('*').in('event_id', eventIds);
+      allAssets = assetsData || [];
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-vividOrange selection:text-atomicBlack transition-colors duration-300">
@@ -23,7 +53,7 @@ export default function ProjectOverview() {
           </Link>
           <div className="h-4 w-px bg-black/20 dark:bg-white/20"></div>
           <p className="font-mono text-xs uppercase tracking-widest opacity-60 flex items-center gap-4">
-            {currentClient.name}
+            {currentClient?.name || "Initializing..."}
           </p>
         </div>
         <div className="flex items-center gap-6 relative z-10">
@@ -46,43 +76,53 @@ export default function ProjectOverview() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {clientEvents.map((event) => (
-            <EventCard key={event.id} event={event} assets={mockAssets} />
-          ))}
-        </div>
+        {clientEvents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-16 border border-dashed border-black/20 dark:border-white/20 rounded-lg">
+            <h3 className="font-heading text-2xl mb-2">No Vaults Available</h3>
+            <p className="font-mono text-sm opacity-50 uppercase tracking-widest text-center">
+              There are currently no secure environments provisioned for {currentClient?.name || "this organization"}.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {clientEvents.map((event) => (
+              <EventCard key={event.id} event={event} assets={allAssets} />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-function EventCard({ event, assets = [] }: { event: typeof mockEvents[0], assets?: MediaAsset[] }) {
+function EventCard({ event, assets = [] }: { event: EventType, assets: MediaAsset[] }) {
   const expiryDate = new Date(event.expiry_date);
-  const formattedDate = new Intl.DateTimeFormat('en-US', {
-    month: 'long', day: 'numeric', year: 'numeric'
+  const formattedDate = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
   }).format(expiryDate);
 
   // Derive stats if assets are provided
   const eventAssets = assets.filter(a => a.event_id === event.id);
   const totalItems = eventAssets.length;
   // Calculate total GB (mock size is currently in MB)
-  const totalMB = eventAssets.reduce((sum, asset) => sum + (asset.size_mb || 0), 0);
+  const totalMB = eventAssets.reduce((sum, asset) => sum + (Number(asset.size_mb) || 0), 0);
   const sizeGB = (totalMB / 1024).toFixed(2);
-
 
   return (
     <Link href={`/vault/${event.id}`} className="group block h-full relative z-10">
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-foreground/5 dark:bg-foreground/10 border border-black/10 dark:border-white/10 group-hover:border-vividOrange/50 transition-colors duration-500 flex flex-col rounded-sm">
 
         {/* Image Container with Hover Scale */}
-        <div className="relative w-full h-[65%] overflow-hidden">
-          <Image
-            src={event.cover_image_url}
-            alt={event.name}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-105 opacity-80 group-hover:opacity-100"
-          />
+        <div className="relative w-full h-[65%] overflow-hidden bg-black/5 dark:bg-white/5">
+          {event.cover_image_url && (
+            <Image
+              src={event.cover_image_url}
+              alt={event.name}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-105 opacity-80 group-hover:opacity-100"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60"></div>
 
           <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">

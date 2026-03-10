@@ -1,55 +1,101 @@
 "use client";
 
-import { mockCompanies } from "@/lib/mockData";
+import { Company } from "@/lib/types";
+import { getCompaniesAction, createEventAction } from "@/actions/storage";
 import { ArrowLeft, Save, Calendar, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { parse, differenceInDays, addDays, format, isValid } from "date-fns";
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const [clientId, setClientId] = useState(mockCompanies[0].id);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [clientId, setClientId] = useState("");
   const [eventTitle, setEventTitle] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [brandingColor, setBrandingColor] = useState("#FF4500"); // Default Vivid Orange
+  const [startDate, setStartDate] = useState(""); // DD/MM/YYYY
+  const [endDate, setEndDate] = useState("");     // DD/MM/YYYY
+  const [brandingColor, setBrandingColor] = useState("#FF4500");
   const [isCustomColor, setIsCustomColor] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Automatically calculate total days
-  const totalDays = useMemo(() => {
-    if (!startDate || !endDate) return 0;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays + 1; // Inclusive of start day
-  }, [startDate, endDate]);
+  useEffect(() => {
+    async function fetchCompanies() {
+      const data = await getCompaniesAction();
+      setCompanies(data);
+      if (data.length > 0) {
+        setClientId(data[0].id);
+      }
+      setIsLoading(false);
+    }
+    fetchCompanies();
+  }, []);
 
-  // Automatically calculate vault expiry (365 days from end date)
-  const vaultExpiry = useMemo(() => {
-    if (!endDate) return "Pending Configuration";
-    const end = new Date(endDate);
-    end.setDate(end.getDate() + 365);
-    return end.toISOString().split('T')[0];
+  // Format utility
+  const handleDateChange = (val: string, setter: React.Dispatch<React.SetStateAction<string>>) => {
+    let cleanVal = val.replace(/\D/g, "");
+    if (cleanVal.length > 2) cleanVal = cleanVal.slice(0, 2) + "/" + cleanVal.slice(2);
+    if (cleanVal.length > 5) cleanVal = cleanVal.slice(0, 5) + "/" + cleanVal.slice(5, 9);
+    setter(cleanVal);
+  };
+
+  const parsedStartDate = useMemo(() => {
+    if (startDate.length !== 10) return null;
+    const d = parse(startDate, 'dd/MM/yyyy', new Date());
+    return isValid(d) ? d : null;
+  }, [startDate]);
+
+  const parsedEndDate = useMemo(() => {
+    if (endDate.length !== 10) return null;
+    const d = parse(endDate, 'dd/MM/yyyy', new Date());
+    return isValid(d) ? d : null;
   }, [endDate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const totalDays = useMemo(() => {
+    if (!parsedStartDate || !parsedEndDate) return 0;
+    const diff = differenceInDays(parsedEndDate, parsedStartDate);
+    return diff >= 0 ? diff + 1 : 0;
+  }, [parsedStartDate, parsedEndDate]);
+
+  const vaultExpiryDate = useMemo(() => {
+    if (!parsedEndDate) return null;
+    return addDays(parsedEndDate, 365);
+  }, [parsedEndDate]);
+
+  const vaultExpiryDisplay = useMemo(() => {
+    if (!vaultExpiryDate) return "Pending Configuration";
+    return format(vaultExpiryDate, 'dd/MM/yyyy');
+  }, [vaultExpiryDate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!parsedStartDate || !parsedEndDate || totalDays <= 0 || !clientId) {
+      alert("Please ensure dates are valid DD/MM/YYYY and logically sequential, and a client is selected.");
+      return;
+    }
     setIsSubmitting(true);
     
-    // Simulate API call to create project
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await createEventAction({
+        client_id: clientId,
+        name: eventTitle,
+        start_date: parsedStartDate.toISOString(),
+        end_date: parsedEndDate.toISOString(),
+        expiry_date: vaultExpiryDate!.toISOString(),
+        cover_image_url: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop",
+      });
       setIsSuccess(true);
-      
-      // Redirect after success
       setTimeout(() => {
         router.push('/admin');
       }, 2000);
-    }, 1500);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to create the project.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -110,9 +156,10 @@ export default function NewProjectPage() {
                 onChange={(e) => setClientId(e.target.value)}
                 className="bg-[#0a0a0a] border border-white/20 p-3 rounded-sm font-body text-white focus:outline-none focus:border-vividOrange transition-colors appearance-none cursor-pointer"
                 required
+                disabled={isLoading}
               >
-                <option value="" disabled>Select Client...</option>
-                {mockCompanies.map(company => (
+                <option value="" disabled>{isLoading ? 'Loading Clients...' : 'Select Client...'}</option>
+                {companies.map(company => (
                   <option key={company.id} value={company.id}>{company.name}</option>
                 ))}
               </select>
@@ -133,25 +180,28 @@ export default function NewProjectPage() {
 
             {/* Date Range */}
             <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="font-switser text-sm font-medium text-white/80">Event Duration</label>
+              <label className="font-switser text-sm font-medium text-white/80">Event Duration (DD/MM/YYYY)</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="relative">
                   <input 
-                    type="date"
+                    type="text"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-white/20 p-3 pl-10 rounded-sm text-sm font-mono text-white focus:outline-none focus:border-vividOrange transition-colors [color-scheme:dark]"
+                    onChange={(e) => handleDateChange(e.target.value, setStartDate)}
+                    placeholder="DD/MM/YYYY"
+                    maxLength={10}
+                    className="w-full bg-[#0a0a0a] border border-white/20 p-3 pl-10 rounded-sm text-sm font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-vividOrange transition-colors"
                     required
                   />
                   <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
                 </div>
                 <div className="relative">
                   <input 
-                    type="date"
+                    type="text"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDate}
-                    className="w-full bg-[#0a0a0a] border border-white/20 p-3 pl-10 rounded-sm text-sm font-mono text-white focus:outline-none focus:border-vividOrange transition-colors [color-scheme:dark]"
+                    onChange={(e) => handleDateChange(e.target.value, setEndDate)}
+                    placeholder="DD/MM/YYYY"
+                    maxLength={10}
+                    className="w-full bg-[#0a0a0a] border border-white/20 p-3 pl-10 rounded-sm text-sm font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-vividOrange transition-colors"
                     required
                   />
                   <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
@@ -169,7 +219,7 @@ export default function NewProjectPage() {
                 <div className="h-8 w-px bg-white/20"></div>
                 <div className="flex flex-col">
                   <span className="font-mono text-[9px] uppercase tracking-widest text-white/40">Vault Expiry (1 Year)</span>
-                  <span className="font-mono text-sm text-vividOrange">{vaultExpiry}</span>
+                  <span className="font-mono text-sm text-vividOrange">{vaultExpiryDisplay}</span>
                 </div>
               </div>
             </div>
@@ -219,7 +269,7 @@ export default function NewProjectPage() {
           <div className="flex justify-end pt-4 mt-4 border-t border-white/10">
             <button 
               type="submit"
-              disabled={isSubmitting || !eventTitle || !startDate || !endDate}
+              disabled={isSubmitting || !eventTitle || startDate.length !== 10 || endDate.length !== 10 || !clientId}
               className="bg-white text-[#0a0a0a] hover:bg-vividOrange hover:text-atomicBlack disabled:opacity-50 disabled:cursor-not-allowed font-heading font-semibold px-8 py-3 transition-colors rounded-sm shadow-sm flex items-center gap-2 group min-h-[44px]"
             >
               {isSubmitting ? (

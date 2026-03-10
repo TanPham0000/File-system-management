@@ -1,6 +1,6 @@
 "use client";
 
-import { MediaAsset } from "@/lib/mockData";
+import { MediaAsset } from "@/lib/types";
 import Image from "next/image";
 import { Download, PlaySquare, Info, FileText, Trash2, Edit } from "lucide-react";
 import { motion } from "framer-motion";
