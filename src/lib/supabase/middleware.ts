@@ -45,6 +45,11 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
+  // DEBUGGING AUTH STATE
+  if (user) {
+    console.log("MIDDLEWARE USER LOGGED IN:", user.email, user.user_metadata)
+  }
+
   if (isLoginPage && user) {
     // If we have a user, check their metadata to see their role/company
     const companyId = user.user_metadata?.company_id
