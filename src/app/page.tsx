@@ -46,13 +46,13 @@ export default async function ProjectOverview() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body selection:bg-vividOrange selection:text-atomicBlack transition-colors duration-300">
       {/* Header */}
-      <header className="px-8 py-6 flex justify-between items-center border-b border-black/10 dark:border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="font-heading text-2xl tracking-tighter hover:text-vividOrange transition-colors relative z-10 min-h-[44px] flex items-center">
+      <header className="px-4 md:px-8 py-6 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0 border-b border-black/10 dark:border-white/10 bg-background/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6 text-center md:text-left">
+          <Link href="/" className="font-heading text-xl md:text-2xl tracking-tighter hover:text-vividOrange transition-colors relative z-10 min-h-[44px] flex items-center justify-center">
             PHAM. Vault
           </Link>
-          <div className="h-4 w-px bg-black/20 dark:bg-white/20"></div>
-          <p className="font-mono text-xs uppercase tracking-widest opacity-60 flex items-center gap-4">
+          <div className="hidden md:block h-4 w-px bg-black/20 dark:bg-white/20"></div>
+          <p className="font-mono text-[9px] md:text-xs uppercase tracking-widest opacity-60 flex items-center justify-center gap-4 w-full">
             {currentClient?.name || "Initializing..."}
           </p>
         </div>
@@ -68,10 +68,10 @@ export default async function ProjectOverview() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow px-8 py-16 max-w-[1600px] mx-auto w-full">
-        <div className="mb-16">
-          <h1 className="font-heading text-5xl md:text-7xl mb-4 tracking-tight">Your Event Archives.</h1>
-          <p className="font-special text-xl opacity-60 italic max-w-2xl">
+      <main className="flex-grow px-4 md:px-8 py-10 md:py-16 max-w-[1600px] mx-auto w-full">
+        <div className="mb-10 md:mb-16">
+          <h1 className="font-heading text-4xl sm:text-5xl md:text-7xl mb-4 tracking-tight">Your Event Archives.</h1>
+          <p className="font-special text-lg md:text-xl opacity-60 italic max-w-2xl">
             Access, review, and utilize your premium media assets. Guaranteed secure hosting for 12 months.
           </p>
         </div>

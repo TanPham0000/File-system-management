@@ -13,6 +13,16 @@ export async function getCompaniesAction() {
   return data as Company[];
 }
 
+export async function createCompanyAction(name: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.from('companies').insert([{ name }]).select().single();
+  if (error) {
+    console.error("Failed to create company:", error);
+    throw new Error("Failed to create company.");
+  }
+  return data as Company;
+}
+
 export async function createEventAction(eventData: Omit<EventType, 'id' | 'created_at'>) {
   const supabase = createClient();
   const { data, error } = await supabase.from('events').insert([eventData]).select().single();
