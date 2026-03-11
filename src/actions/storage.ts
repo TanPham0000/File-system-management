@@ -2,6 +2,22 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { Company, EventType, MediaAsset } from "@/lib/types";
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+
+// We need an admin client to bypass RLS and create users safely without touching the current session
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error("Missing Supabase Service Role configuration. Please add NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY to your .env.local.");
+  }
+  return createSupabaseClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    }
+  });
+}
 
 export async function getCompaniesAction() {
   const supabase = createClient();
@@ -13,14 +29,54 @@ export async function getCompaniesAction() {
   return data as Company[];
 }
 
-export async function createCompanyAction(name: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase.from('companies').insert([{ name }]).select().single();
-  if (error) {
-    console.error("Failed to create company:", error);
-    throw new Error("Failed to create company.");
+export async function createCompanyAction(formData: FormData) {
+  const name = formData.get("name") as string;
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  
+  if (!name || !email || !password) {
+      throw new Error("Missing required fields: name, email, or password.");
   }
-  return data as Company;
+
+  // 1. Initialize Admin client
+  // Using the admin client ensures we don't log the current user (admin) out
+  const adminClient = getAdminClient();
+
+  // 2. Insert the company to get the new ID
+  const { data: company, error: companyError } = await adminClient
+    .from('companies')
+    .insert([{ name, email }])
+    .select()
+    .single();
+
+  if (companyError || !company) {
+    console.error("Failed to create company:", companyError);
+    // Determine friendly error if it's a unique constraint violation
+    if (companyError?.code === '23505') {
+       throw new Error("A company or user with this email already exists in the system.");
+    }
+    throw new Error("Failed to create company in database.");
+  }
+
+  // 3. Create the Supabase Auth User with the company_id in metadata
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true, // Auto-confirm for this flow
+    user_metadata: {
+      company_id: company.id,
+      company_name: company.name
+    }
+  });
+
+  if (authError || !authData.user) {
+    console.error("Failed to provision Auth User:", authError);
+    // Rollback the company creation if auth fails
+    await adminClient.from('companies').delete().eq('id', company.id);
+    throw new Error(`Auth Error: ${authError?.message || 'Failed to securely provision user credentials.'}`);
+  }
+
+  return company as Company;
 }
 
 export async function createEventAction(eventData: Omit<EventType, 'id' | 'created_at'>) {

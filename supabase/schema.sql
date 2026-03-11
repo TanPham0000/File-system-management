@@ -8,6 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS public.companies (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name TEXT NOT NULL,
+  email TEXT UNIQUE,
   logo_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -14,28 +14,39 @@ interface OnboardClientModalProps {
 export function OnboardClientModal({ onSuccess }: OnboardClientModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [companyName, setCompanyName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [authError, setAuthError] = useState("");
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!companyName.trim()) return;
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get("name") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    
+    if (!name.trim() || !email.trim() || !password.trim()) {
+        alert("All fields are required.");
+        return;
+    }
     
     setIsSubmitting(true);
+    setAuthError("");
     try {
-      const newCompany = await createCompanyAction(companyName);
+      const newCompany = await createCompanyAction(formData);
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
         setIsOpen(false);
-        setCompanyName("");
         if (onSuccess) onSuccess(newCompany);
         router.refresh(); // Refresh the server page to load the new client into the directory array
       }, 1500);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      alert("Failed to onboard partner.");
+      if (error instanceof Error) {
+        setAuthError(error.message);
+      } else {
+        setAuthError("Failed to onboard partner.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -84,7 +95,7 @@ export function OnboardClientModal({ onSuccess }: OnboardClientModalProps) {
                     >
                       <CheckCircle2 size={64} className="text-green-500 mb-4 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]" />
                       <h3 className="font-heading text-2xl">Partner Added</h3>
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-green-500 mt-2">Directory Updated</p>
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-green-500 mt-2">Credentials Generated</p>
                     </motion.div>
                   </motion.div>
                 )}
@@ -105,14 +116,19 @@ export function OnboardClientModal({ onSuccess }: OnboardClientModalProps) {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              {authError && (
+                 <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm rounded-sm">
+                    {authError}
+                 </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
                   <label className="font-switser text-sm font-medium opacity-80">Organization Name</label>
                   <div className="relative">
                     <input 
                       type="text"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
+                      name="name"
                       placeholder="e.g. Acme Studio"
                       className="w-full bg-foreground/5 border border-black/10 dark:border-white/20 p-3 pl-10 rounded-sm font-body focus:outline-none focus:border-vividOrange transition-colors"
                       required
@@ -123,10 +139,35 @@ export function OnboardClientModal({ onSuccess }: OnboardClientModalProps) {
                   </div>
                 </div>
 
+                <div className="flex flex-col gap-2">
+                  <label className="font-switser text-sm font-medium opacity-80">Client Contact Email</label>
+                  <input 
+                    type="email"
+                    name="email"
+                    placeholder="client@company.com"
+                    className="w-full bg-foreground/5 border border-black/10 dark:border-white/20 p-3 rounded-sm font-body focus:outline-none focus:border-vividOrange transition-colors"
+                    required
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="font-switser text-sm font-medium opacity-80">Temporary Password</label>
+                  <input 
+                    type="text"
+                    name="password"
+                    placeholder="Min 6 characters"
+                    minLength={6}
+                    className="w-full bg-foreground/5 border border-black/10 dark:border-white/20 p-3 rounded-sm font-body focus:outline-none focus:border-vividOrange transition-colors"
+                    required
+                    disabled={isSubmitting}
+                  />
+                </div>
+
                 <div className="flex justify-end pt-4 mt-2 border-t border-black/10 dark:border-white/10">
                   <button 
                     type="submit"
-                    disabled={isSubmitting || !companyName.trim()}
+                    disabled={isSubmitting}
                     className="bg-foreground text-background hover:bg-vividOrange hover:text-atomicBlack disabled:opacity-50 disabled:cursor-not-allowed font-heading font-semibold px-6 py-2.5 transition-colors rounded-sm shadow-sm flex items-center gap-2 min-h-[44px]"
                   >
                     {isSubmitting ? (

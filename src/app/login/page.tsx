@@ -41,6 +41,20 @@ export default function LoginPage() {
               />
             </div>
 
+            <div className="flex flex-col gap-2 relative">
+              <label htmlFor="password" className="font-mono text-xs text-almostWhite/50 uppercase tracking-wider">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your secure password"
+                className="w-full bg-[#0F0F0F] border border-[#333] rounded-md px-4 py-3 font-body text-almostWhite placeholder:text-almostWhite/30 focus:outline-none focus:border-vividOrange transition-colors relative z-10"
+                required
+              />
+            </div>
+
             {state?.error && (
               <p className="text-red-400 text-sm">{state.error}</p>
             )}
@@ -77,10 +91,10 @@ function SubmitButton() {
       {pending ? (
         <>
           <span className="w-4 h-4 border-2 border-atomicBlack/30 border-t-atomicBlack rounded-full animate-spin"></span>
-          Sending Link...
+          Authenticating...
         </>
       ) : (
-        "Send Magic Link"
+        "Access Vault"
       )}
     </button>
   );
